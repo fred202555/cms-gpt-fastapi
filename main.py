@@ -59,10 +59,4 @@ def generate(keyword: str = Form(...)):
     return FileResponse(filepath, media_type='text/html', filename=filename)
 """
 
-# Sauvegarde dans un fichier
-main_py_path = "/mnt/data/main.py"
-with open(main_py_path, "w", encoding="utf-8") as f:
-    f.write(main_py_content)
-
-main_py_path
 
