@@ -1,5 +1,5 @@
 # Création d'un fichier main.py corrigé et prêt à uploader sur GitHub
-
+print("🚀 main.py correctement chargé !")
 main_py_content = """
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, FileResponse
