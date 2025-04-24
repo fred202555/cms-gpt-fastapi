@@ -1,4 +1,6 @@
+# On corrige ici le code envoyé par Fred pour s'assurer qu'il est 100 % propre, exécutable et sans erreurs de syntaxe
 
+fixed_code = """
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, FileResponse
 import openai
@@ -57,4 +59,9 @@ def generate(keyword: str = Form(...)):
     return FileResponse(filepath, media_type='text/html', filename=filename)
 """
 
+# Sauvegarde dans un fichier à télécharger
+fixed_file_path = "/mnt/data/main_corrected.py"
+with open(fixed_file_path, "w", encoding="utf-8") as f:
+    f.write(fixed_code)
 
+fixed_file_path
