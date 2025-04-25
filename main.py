@@ -10,9 +10,8 @@ HOST = "155.138.157.201"
 PORT = 22
 USERNAME = "mastercms"
 PASSWORD = os.getenv("CLOUDWAYS_SFTP")
-REMOTE_BASE_DIR = "/home/mastercloud/apps/zxsxanhphuk/public_html"
+REMOTE_BASE_DIR = "/home/mastercloud/apps/zxsxanhphuk/public_html/articles"
 
-# Vérification de la variable
 if not PASSWORD:
     raise ValueError("⛔ Variable d’environnement CLOUDWAYS_SFTP non définie")
 
@@ -30,17 +29,6 @@ def upload_form():
     </body></html>
     '''
 
-def mkdir_p(sftp, remote_directory):
-    """Crée les dossiers distants de façon récursive"""
-    dirs = remote_directory.strip("/").split("/")
-    path = ""
-    for folder in dirs:
-        path += f"/{folder}"
-        try:
-            sftp.stat(path)
-        except FileNotFoundError:
-            sftp.mkdir(path)
-
 @app.post("/generate")
 def generate(file: UploadFile):
     lines = file.file.read().decode("utf-8").splitlines()
@@ -55,7 +43,7 @@ def generate(file: UploadFile):
                 slug = slugify(title)
                 prompt = f"Rédige un article HTML SEO de 1500 mots. Titre : {title}. Inclut <title>, meta description, <h2>, paragraphes, et une conclusion."
 
-                yield f"\n---\n✨ {title}"
+                yield f"\n---\n🧠 Génération : {title}"
 
                 response = openai.ChatCompletion.create(
                     model="gpt-4",
@@ -63,7 +51,7 @@ def generate(file: UploadFile):
                 )
 
                 if not response.choices:
-                    yield f"\n❌ Pas de réponse de GPT pour : {title}"
+                    yield f"\n❌ Pas de réponse GPT pour : {title}"
                     continue
 
                 html = response.choices[0].message.content.strip()
@@ -72,21 +60,27 @@ def generate(file: UploadFile):
                     yield f"\n❌ Contenu vide généré pour : {title}"
                     continue
 
+                # Écrire le fichier temporaire
                 tmp_path = f"/tmp/{slug}.html"
-                with open(tmp_path, "w", encoding="utf-8") as tmp:
-                    tmp.write(html)
+                try:
+                    with open(tmp_path, "w", encoding="utf-8") as tmp:
+                        tmp.write(html)
+                    yield f"📝 Fichier temporaire créé : {tmp_path}"
+                except Exception as e:
+                    yield f"❌ Échec création fichier temporaire : {e}"
+                    continue
 
-                remote_path = f"{REMOTE_BASE_DIR}/articles/{slug}/"
-                mkdir_p(sftp, remote_path)
-
-                if os.path.exists(tmp_path):
-                    sftp.put(tmp_path, f"{remote_path}index.html")
-                    yield f"\n✅ Publié : https://zenexamen.com/articles/{slug}/"
-                else:
-                    yield f"\n❌ Fichier temporaire introuvable pour : {title}"
+                # Upload SFTP
+                remote_file = f"{REMOTE_BASE_DIR}/{slug}.html"
+                try:
+                    sftp.put(tmp_path, remote_file)
+                    yield f"✅ Upload réussi : https://zenexamen.com/articles/{slug}.html"
+                except Exception as e:
+                    yield f"❌ Échec de l’upload : {e}"
+                    continue
 
             except Exception as e:
-                yield f"\n❌ Erreur : {title} → {e}"
+                yield f"\n❌ Erreur générale : {title} → {e}"
 
         sftp.close()
         transport.close()
