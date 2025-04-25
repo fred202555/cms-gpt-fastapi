@@ -1,57 +1,70 @@
-
-from fastapi import FastAPI, Form
-from fastapi.responses import HTMLResponse, FileResponse
-import openai
-import os
+from fastapi import FastAPI, UploadFile
+from fastapi.responses import HTMLResponse, StreamingResponse
+import openai, os, paramiko, tempfile
+from slugify import slugify
 
 app = FastAPI()
+
+# Configuration Cloudways
+HOST = "155.138.157.201"
+PORT = 22
+USERNAME = "mastercms"  # Doit être ici, hors fonction
+PASSWORD = os.getenv("CLOUDWAYS_SFTP")
+REMOTE_BASE_DIR = "/home/mastercloud/apps/zxsxanhphuk/public_html"
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.get("/", response_class=HTMLResponse)
-def home():
-    return """<!DOCTYPE html>
-<html>
-<head><title>ZenExamen Générateur</title></head>
-<body>
-<h2>Interface disponible à <a href='/form'>/form</a></h2>
-</body></html>"""
-
-@app.get("/form", response_class=HTMLResponse)
-def form():
+def upload_form():
     return '''
-        <!DOCTYPE html>
-        <html lang="fr">
-        <head>
-            <meta charset="UTF-8">
-            <title>ZenExamen - Générateur d’article</title>
-        </head>
-        <body>
-            <h1>🧘 Générateur d’article ZenExamen</h1>
-            <form action="/generate" method="post">
-                <label for="keyword">Mot-clé :</label>
-                <input type="text" id="keyword" name="keyword" required>
-                <button type="submit">Générer</button>
-            </form>
-        </body>
-        </html>
+    <html><body>
+    <h2>🧘 Générateur d’article ZenExamen</h2>
+    <form action="/generate" enctype="multipart/form-data" method="post">
+        <input name="file" type="file">
+        <button type="submit">Lancer la génération</button>
+    </form>
+    </body></html>
     '''
 
 @app.post("/generate")
-def generate(keyword: str = Form(...)):
-    slug = keyword.lower().replace(" ", "-")
-    prompt = f"Rédige un article SEO de 1500 mots en HTML sur le thème : {keyword}. L’article doit être structuré avec titre, meta description, balises <h2>, et contenu fluide et humain. Pas d’images."
+def generate(file: UploadFile):
+    lines = file.file.read().decode("utf-8").splitlines()
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
-    )
+    def streamer():
+        transport = paramiko.Transport((HOST, PORT))
+        transport.connect(username=USERNAME, password=PASSWORD)
+        sftp = paramiko.SFTPClient.from_transport(transport)
 
-    article_content = response.choices[0].message.content
+        for title in lines:
+            try:
+                slug = slugify(title)
+                prompt = f"Rédige un article HTML SEO de 1500 mots. Titre : {title}. Inclut <title>, meta description, <h2>, paragraphes, et une conclusion."
 
-    filename = f"{slug}.html"
-    filepath = f"/tmp/{filename}"
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(article_content)
+                yield f"\n---\n✨ {title}"
 
-    return FileResponse(filepath, media_type='text/html', filename=filename)
+                response = openai.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                html = response.choices[0].message.content
+
+                with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8", suffix=".html") as tmp:
+                    tmp.write(html)
+                    tmp_path = tmp.name
+
+                remote_path = f"{REMOTE_BASE_DIR}/{slug}/"
+                try:
+                    sftp.stat(remote_path)
+                except FileNotFoundError:
+                    sftp.mkdir(remote_path)
+
+                sftp.put(tmp_path, f"{remote_path}index.html")
+                yield f"\n✅ Publié : https://zenexamen.com/{slug}/"
+
+            except Exception as e:
+                yield f"\n❌ Erreur : {title} → {e}"
+
+        sftp.close()
+        transport.close()
+
+    return StreamingResponse(streamer(), media_type="text/plain")
