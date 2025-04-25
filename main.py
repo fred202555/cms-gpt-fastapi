@@ -1,5 +1,3 @@
-# Version finale corrigée avec /tmp/slug.html à la place de NamedTemporaryFile
-final_main_with_tmp = """
 from fastapi import FastAPI, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
 import openai, os, paramiko
@@ -7,6 +5,7 @@ from slugify import slugify
 
 app = FastAPI()
 
+# Configuration Cloudways
 HOST = "155.138.157.201"
 PORT = 22
 USERNAME = "mastercms"
@@ -41,7 +40,7 @@ def generate(file: UploadFile):
                 slug = slugify(title)
                 prompt = f"Rédige un article HTML SEO de 1500 mots. Titre : {title}. Inclut <title>, meta description, <h2>, paragraphes, et une conclusion."
 
-                yield f"\\n---\\n✨ {title}"
+                yield f"\n---\n✨ {title}"
 
                 response = openai.ChatCompletion.create(
                     model="gpt-4",
@@ -49,15 +48,16 @@ def generate(file: UploadFile):
                 )
 
                 if not response.choices:
-                    yield f"\\n❌ Pas de réponse de GPT pour : {title}"
+                    yield f"\n❌ Pas de réponse de GPT pour : {title}"
                     continue
 
                 html = response.choices[0].message.content.strip()
 
                 if not html:
-                    yield f"\\n❌ Contenu vide généré pour : {title}"
+                    yield f"\n❌ Contenu vide généré pour : {title}"
                     continue
 
+                # Écrire directement dans /tmp/
                 tmp_path = f"/tmp/{slug}.html"
                 with open(tmp_path, "w", encoding="utf-8") as tmp:
                     tmp.write(html)
@@ -70,21 +70,14 @@ def generate(file: UploadFile):
 
                 if os.path.exists(tmp_path):
                     sftp.put(tmp_path, f"{remote_path}index.html")
-                    yield f"\\n✅ Publié : https://zenexamen.com/{slug}/"
+                    yield f"\n✅ Publié : https://zenexamen.com/{slug}/"
                 else:
-                    yield f"\\n❌ Fichier temporaire introuvable pour : {title}"
+                    yield f"\n❌ Fichier temporaire introuvable pour : {title}"
 
             except Exception as e:
-                yield f"\\n❌ Erreur : {title} → {e}"
+                yield f"\n❌ Erreur : {title} → {e}"
 
         sftp.close()
         transport.close()
 
     return StreamingResponse(streamer(), media_type="text/plain")
-"""
-
-final_path_tmp = "/mnt/data/main_tmp_write.py"
-with open(final_path_tmp, "w", encoding="utf-8") as f:
-    f.write(final_main_with_tmp)
-
-final_path_tmp
