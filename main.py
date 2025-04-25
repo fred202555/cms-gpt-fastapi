@@ -1,5 +1,3 @@
-# Réexécution suite à reset : création du fichier main.py amélioré avec sécurité GPT
-corrected_main_py = """
 from fastapi import FastAPI, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
 import openai, os, paramiko, tempfile
@@ -43,7 +41,7 @@ def generate(file: UploadFile):
                 slug = slugify(title)
                 prompt = f"Rédige un article HTML SEO de 1500 mots. Titre : {title}. Inclut <title>, meta description, <h2>, paragraphes, et une conclusion."
 
-                yield f"\\n---\\n✨ {title}"
+                yield f"\n---\n✨ {title}"
 
                 response = openai.ChatCompletion.create(
                     model="gpt-4",
@@ -51,13 +49,13 @@ def generate(file: UploadFile):
                 )
 
                 if not response.choices:
-                    yield f"\\n❌ Pas de réponse de GPT pour : {title}"
+                    yield f"\n❌ Pas de réponse de GPT pour : {title}"
                     continue
 
                 html = response.choices[0].message.content.strip()
 
                 if not html:
-                    yield f"\\n❌ Contenu vide généré pour : {title}"
+                    yield f"\n❌ Contenu vide généré pour : {title}"
                     continue
 
                 with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8", suffix=".html") as tmp:
@@ -71,19 +69,12 @@ def generate(file: UploadFile):
                     sftp.mkdir(remote_path)
 
                 sftp.put(tmp_path, f"{remote_path}index.html")
-                yield f"\\n✅ Publié : https://zenexamen.com/{slug}/"
+                yield f"\n✅ Publié : https://zenexamen.com/{slug}/"
 
             except Exception as e:
-                yield f"\\n❌ Erreur : {title} → {e}"
+                yield f"\n❌ Erreur : {title} → {e}"
 
         sftp.close()
         transport.close()
 
     return StreamingResponse(streamer(), media_type="text/plain")
-"""
-
-output_path = "/mnt/data/main_verified.py"
-with open(output_path, "w", encoding="utf-8") as f:
-    f.write(corrected_main_py)
-
-output_path
