@@ -5,3 +5,4 @@ openai
 openai==0.28.1
 python-multipart
 paramiko
+python-slugify
