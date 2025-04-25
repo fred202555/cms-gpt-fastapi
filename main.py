@@ -12,6 +12,10 @@ USERNAME = "mastercms"
 PASSWORD = os.getenv("CLOUDWAYS_SFTP")
 REMOTE_BASE_DIR = "/home/mastercloud/apps/zxsxanhphuk/public_html"
 
+# Vérification de la variable
+if not PASSWORD:
+    raise ValueError("⛔ Variable d’environnement CLOUDWAYS_SFTP non définie")
+
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.get("/", response_class=HTMLResponse)
@@ -25,6 +29,17 @@ def upload_form():
     </form>
     </body></html>
     '''
+
+def mkdir_p(sftp, remote_directory):
+    """Crée les dossiers distants de façon récursive"""
+    dirs = remote_directory.strip("/").split("/")
+    path = ""
+    for folder in dirs:
+        path += f"/{folder}"
+        try:
+            sftp.stat(path)
+        except FileNotFoundError:
+            sftp.mkdir(path)
 
 @app.post("/generate")
 def generate(file: UploadFile):
@@ -57,20 +72,16 @@ def generate(file: UploadFile):
                     yield f"\n❌ Contenu vide généré pour : {title}"
                     continue
 
-                # Écrire directement dans /tmp/
                 tmp_path = f"/tmp/{slug}.html"
                 with open(tmp_path, "w", encoding="utf-8") as tmp:
                     tmp.write(html)
 
-                remote_path = f"{REMOTE_BASE_DIR}/{slug}/"
-                try:
-                    sftp.stat(remote_path)
-                except FileNotFoundError:
-                    sftp.mkdir(remote_path)
+                remote_path = f"{REMOTE_BASE_DIR}/articles/{slug}/"
+                mkdir_p(sftp, remote_path)
 
                 if os.path.exists(tmp_path):
                     sftp.put(tmp_path, f"{remote_path}index.html")
-                    yield f"\n✅ Publié : https://zenexamen.com/{slug}/"
+                    yield f"\n✅ Publié : https://zenexamen.com/articles/{slug}/"
                 else:
                     yield f"\n❌ Fichier temporaire introuvable pour : {title}"
 
