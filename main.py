@@ -5,14 +5,12 @@ from slugify import slugify
 
 app = FastAPI()
 
-# Configuration Cloudways
 HOST = "155.138.157.201"
 PORT = 22
 USERNAME = "mastercms"
 PASSWORD = os.getenv("CLOUDWAYS_SFTP")
 REMOTE_BASE_DIR = "/home/mastercloud/apps/zxsxanhphuk/public_html"
 
-# Clé OpenAI
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.get("/", response_class=HTMLResponse)
@@ -68,8 +66,11 @@ def generate(file: UploadFile):
                 except FileNotFoundError:
                     sftp.mkdir(remote_path)
 
-                sftp.put(tmp_path, f"{remote_path}index.html")
-                yield f"\n✅ Publié : https://zenexamen.com/{slug}/"
+                if os.path.exists(tmp_path):
+                    sftp.put(tmp_path, f"{remote_path}index.html")
+                    yield f"\n✅ Publié : https://zenexamen.com/{slug}/"
+                else:
+                    yield f"\n❌ Fichier temporaire introuvable pour : {title}"
 
             except Exception as e:
                 yield f"\n❌ Erreur : {title} → {e}"
